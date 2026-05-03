@@ -1,0 +1,366 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>NIDS — Login</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link
+        href="https://fonts.googleapis.com/css2?family=Share+Tech+Mono&family=Orbitron:wght@400;700;900&family=Rajdhani:wght@500;600;700&display=swap"
+        rel="stylesheet">
+    <style>
+        :root {
+            --bg: #020a0a;
+            --panel: #050f0f;
+            --border: #0d2b2b;
+            --border-bright: #1a4444;
+            --accent: #00ff9f;
+            --accent-glow: rgba(0, 255, 159, 0.15);
+            --red: #ff3e3e;
+            --text: #c8fce8;
+            --text-dim: #2a5a44;
+            --text-sec: #4a9a74;
+            --font-mono: 'Share Tech Mono', monospace;
+            --font-ui: 'Rajdhani', sans-serif;
+            --font-display: 'Orbitron', sans-serif;
+        }
+
+        *,
+        *::before,
+        *::after {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+        }
+
+        body {
+            background: var(--bg);
+            color: var(--text);
+            font-family: var(--font-ui);
+            min-height: 100vh;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            overflow: hidden;
+        }
+
+        /* Grid background */
+        body::before {
+            content: '';
+            position: fixed;
+            inset: 0;
+            pointer-events: none;
+            background-image:
+                linear-gradient(rgba(0, 255, 159, 0.03) 1px, transparent 1px),
+                linear-gradient(90deg, rgba(0, 255, 159, 0.03) 1px, transparent 1px);
+            background-size: 40px 40px;
+        }
+
+        .scanlines {
+            position: fixed;
+            inset: 0;
+            pointer-events: none;
+            z-index: 99;
+            background: repeating-linear-gradient(0deg, transparent, transparent 2px,
+                    rgba(0, 0, 0, 0.04) 2px, rgba(0, 0, 0, 0.04) 4px);
+        }
+
+        .login-wrap {
+            position: relative;
+            z-index: 1;
+            width: 100%;
+            max-width: 420px;
+            padding: 20px;
+        }
+
+        .logo-block {
+            text-align: center;
+            margin-bottom: 32px;
+        }
+
+        .shield {
+            width: 56px;
+            height: 56px;
+            color: var(--accent);
+            filter: drop-shadow(0 0 12px var(--accent));
+            margin: 0 auto 12px;
+            display: block;
+        }
+
+        .logo-title {
+            font-family: var(--font-display);
+            font-size: 2rem;
+            font-weight: 900;
+            color: var(--accent);
+            letter-spacing: 6px;
+            text-shadow: 0 0 15px var(--accent), 0 0 40px rgba(0, 255, 159, 0.3);
+        }
+
+        .logo-sub {
+            font-family: var(--font-mono);
+            font-size: 0.65rem;
+            color: var(--text-dim);
+            letter-spacing: 3px;
+            margin-top: 4px;
+        }
+
+        .card {
+            background: var(--panel);
+            border: 1px solid var(--border-bright);
+            padding: 32px;
+            box-shadow: 0 0 40px rgba(0, 255, 159, 0.05), 0 20px 60px rgba(0, 0, 0, 0.5);
+        }
+
+        .card-title {
+            font-family: var(--font-display);
+            font-size: 0.7rem;
+            letter-spacing: 4px;
+            color: var(--text-sec);
+            text-transform: uppercase;
+            margin-bottom: 24px;
+            text-align: center;
+        }
+
+        .field {
+            margin-bottom: 16px;
+        }
+
+        .field label {
+            display: block;
+            font-family: var(--font-mono);
+            font-size: 0.6rem;
+            letter-spacing: 2px;
+            color: var(--text-dim);
+            margin-bottom: 6px;
+        }
+
+        .field input {
+            width: 100%;
+            background: #071414;
+            border: 1px solid var(--border-bright);
+            color: var(--text);
+            font-family: var(--font-mono);
+            font-size: 0.9rem;
+            padding: 10px 14px;
+            outline: none;
+            transition: border-color 0.2s, box-shadow 0.2s;
+            border-radius: 2px;
+        }
+
+        .field input:focus {
+            border-color: var(--accent);
+            box-shadow: 0 0 0 3px var(--accent-glow);
+        }
+
+        .btn-login {
+            width: 100%;
+            background: transparent;
+            border: 1px solid var(--accent);
+            color: var(--accent);
+            font-family: var(--font-display);
+            font-size: 0.75rem;
+            font-weight: 700;
+            letter-spacing: 4px;
+            padding: 12px;
+            cursor: pointer;
+            margin-top: 8px;
+            transition: all 0.2s;
+            border-radius: 2px;
+        }
+
+        .btn-login:hover {
+            background: var(--accent-glow);
+            box-shadow: 0 0 20px var(--accent-glow);
+        }
+
+        .btn-login:active {
+            transform: scale(0.98);
+        }
+
+        .btn-login.loading {
+            opacity: 0.6;
+            pointer-events: none;
+            letter-spacing: 6px;
+        }
+
+        .error-msg {
+            background: rgba(255, 62, 62, 0.1);
+            border: 1px solid rgba(255, 62, 62, 0.3);
+            color: var(--red);
+            font-family: var(--font-mono);
+            font-size: 0.7rem;
+            padding: 8px 12px;
+            margin-top: 12px;
+            display: none;
+            border-radius: 2px;
+        }
+
+        .hint-box {
+            margin-top: 20px;
+            border: 1px solid var(--border);
+            padding: 12px 16px;
+            background: rgba(0, 255, 159, 0.02);
+        }
+
+        .hint-title {
+            font-family: var(--font-mono);
+            font-size: 0.6rem;
+            color: var(--text-dim);
+            letter-spacing: 2px;
+            margin-bottom: 8px;
+        }
+
+        .hint-row {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 4px 0;
+            border-bottom: 1px solid var(--border);
+            font-family: var(--font-mono);
+            font-size: 0.7rem;
+        }
+
+        .hint-row:last-child {
+            border-bottom: none;
+        }
+
+        .hint-user {
+            color: var(--accent);
+        }
+
+        .hint-role {
+            padding: 1px 6px;
+            font-size: 0.6rem;
+            border-radius: 2px;
+        }
+
+        .role-admin {
+            background: rgba(255, 62, 62, 0.15);
+            color: var(--red);
+            border: 1px solid rgba(255, 62, 62, 0.3);
+        }
+
+        .role-analyst {
+            background: rgba(0, 191, 255, 0.1);
+            color: #00bfff;
+            border: 1px solid rgba(0, 191, 255, 0.3);
+        }
+    </style>
+</head>
+
+<body>
+    <div class="scanlines"></div>
+
+    <div class="login-wrap">
+        <div class="logo-block">
+            <svg class="shield" viewBox="0 0 40 48" fill="none" xmlns="http://www.w3.org/2000/svg">
+                <path d="M20 2L4 9V24C4 33.5 11 42.3 20 46C29 42.3 36 33.5 36 24V9L20 2Z" stroke="currentColor"
+                    stroke-width="2" fill="none" />
+                <path d="M14 24L18 28L26 20" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" />
+            </svg>
+            <div class="logo-title">NIDS</div>
+            <div class="logo-sub">Network Intrusion Detection System</div>
+        </div>
+
+        <div class="card">
+            <div class="card-title">⬡ Secure Access Required</div>
+
+            <div class="field">
+                <label>USERNAME</label>
+                <input type="text" id="username" placeholder="Enter username" autocomplete="username">
+            </div>
+            <div class="field">
+                <label>PASSWORD</label>
+                <input type="password" id="password" placeholder="Enter password" autocomplete="current-password">
+            </div>
+
+            <button class="btn-login" id="login-btn" onclick="doLogin()">ACCESS SYSTEM</button>
+            <div class="error-msg" id="error-msg"></div>
+        </div>
+
+        <div class="hint-box">
+            <div class="hint-title">DEFAULT CREDENTIALS</div>
+            <div class="hint-row">
+                <span class="hint-user">admin / admin123</span>
+                <span class="hint-role role-admin">ADMIN</span>
+            </div>
+            <div class="hint-row">
+                <span class="hint-user">analyst / analyst123</span>
+                <span class="hint-role role-analyst">ANALYST</span>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // If already logged in, go straight to dashboard
+        if (localStorage.getItem('nids_token')) {
+            verifyAndRedirect();
+        }
+
+        // Allow Enter key to submit
+        document.addEventListener('keydown', e => {
+            if (e.key === 'Enter') doLogin();
+        });
+
+        async function verifyAndRedirect() {
+            const token = localStorage.getItem('nids_token');
+            try {
+                const r = await fetch('/api/auth/me', {
+                    headers: { 'Authorization': `Bearer ${token}` }
+                });
+                if (r.ok) window.location.href = '/';
+                else localStorage.removeItem('nids_token');
+            } catch (e) {
+                localStorage.removeItem('nids_token');
+            }
+        }
+
+        async function doLogin() {
+            const username = document.getElementById('username').value.trim();
+            const password = document.getElementById('password').value;
+            const btn = document.getElementById('login-btn');
+            const err = document.getElementById('error-msg');
+
+            if (!username || !password) {
+                showError('Please enter both username and password');
+                return;
+            }
+
+            btn.textContent = 'AUTHENTICATING…';
+            btn.classList.add('loading');
+            err.style.display = 'none';
+
+            try {
+                const r = await fetch('/api/auth/login', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ username, password })
+                });
+                const data = await r.json();
+
+                if (r.ok && data.token) {
+                    localStorage.setItem('nids_token', data.token);
+                    localStorage.setItem('nids_user', JSON.stringify(data.user));
+                    window.location.href = '/';
+                } else {
+                    showError(data.error || 'Login failed');
+                    btn.textContent = 'ACCESS SYSTEM';
+                    btn.classList.remove('loading');
+                }
+            } catch (e) {
+                showError('Connection error — is the server running?');
+                btn.textContent = 'ACCESS SYSTEM';
+                btn.classList.remove('loading');
+            }
+        }
+
+        function showError(msg) {
+            const el = document.getElementById('error-msg');
+            el.textContent = '⚠ ' + msg;
+            el.style.display = 'block';
+        }
+    </script>
+</body>
+
+</html>

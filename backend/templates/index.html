@@ -1,0 +1,296 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>NIDS — Network Intrusion Detection System</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link
+        href="https://fonts.googleapis.com/css2?family=Share+Tech+Mono&family=Rajdhani:wght@400;500;600;700&family=Orbitron:wght@400;700;900&display=swap"
+        rel="stylesheet">
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/socket.io/4.7.2/socket.io.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.min.js"></script>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.css">
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.js"></script>
+    <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+</head>
+
+<body>
+
+    <!-- ══ SCANLINE OVERLAY ════════════════════════════════════════════════════ -->
+    <div class="scanlines"></div>
+    <div class="noise"></div>
+
+    <!-- ══ HEADER ══════════════════════════════════════════════════════════════ -->
+    <header class="hdr">
+        <div class="hdr-brand">
+            <div class="shield-icon">
+                <svg viewBox="0 0 40 48" fill="none" xmlns="http://www.w3.org/2000/svg">
+                    <path d="M20 2L4 9V24C4 33.5 11 42.3 20 46C29 42.3 36 33.5 36 24V9L20 2Z" stroke="currentColor"
+                        stroke-width="2" fill="none" />
+                    <path d="M14 24L18 28L26 20" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" />
+                </svg>
+            </div>
+            <div>
+                <div class="brand-name">NIDS<span class="brand-v">v2.0</span></div>
+                <div class="brand-sub">Network Intrusion Detection System</div>
+            </div>
+        </div>
+
+        <div class="hdr-status">
+            <div class="status-item" id="sys-time">00:00:00</div>
+            <div class="status-pill" id="conn-status">
+                <span class="pulse-dot"></span>
+                <span>CONNECTING</span>
+            </div>
+            <div class="status-pill sniffer-pill" id="sniffer-pill">
+                <span class="dot-off"></span>
+                <span>SNIFFER OFF</span>
+            </div>
+        </div>
+
+        <div class="hdr-controls">
+            <button class="btn btn-primary" id="btn-start-demo" onclick="startSniffer(true)">▶ START DEMO</button>
+            <button class="btn btn-ghost" id="btn-start-real" onclick="startSniffer(false)">⚡ REAL MODE</button>
+            <button class="btn btn-danger hidden" id="btn-stop" onclick="stopSniffer()">■ STOP</button>
+            <div class="user-chip" id="user-chip">
+                <span id="user-display">—</span>
+                <span class="role-tag" id="user-role-tag">—</span>
+                <button class="btn-logout" onclick="logout()" title="Logout">⏻</button>
+            </div>
+        </div>
+    </header>
+
+    <!-- ══ STAT CARDS ═══════════════════════════════════════════════════════════ -->
+    <section class="stats-row">
+        <div class="stat-card" id="card-packets">
+            <div class="stat-label">PACKETS TODAY</div>
+            <div class="stat-value" id="val-packets">0</div>
+            <div class="stat-trend">↑ Live capture</div>
+        </div>
+        <div class="stat-card warn" id="card-alerts">
+            <div class="stat-label">ACTIVE THREATS</div>
+            <div class="stat-value" id="val-threats">0</div>
+            <div class="stat-trend">Unresolved alerts</div>
+        </div>
+        <div class="stat-card crit" id="card-blocked">
+            <div class="stat-label">BLOCKED IPs</div>
+            <div class="stat-value" id="val-blocked">0</div>
+            <div class="stat-trend">Auto + manual blocks</div>
+        </div>
+        <div class="stat-card info" id="card-total">
+            <div class="stat-label">TOTAL ALERTS</div>
+            <div class="stat-value" id="val-total">0</div>
+            <div class="stat-trend">All time</div>
+        </div>
+    </section>
+
+    <!-- ══ MAIN GRID ════════════════════════════════════════════════════════════ -->
+    <main class="grid">
+
+        <!-- Traffic Chart -->
+        <div class="panel span-2" id="panel-traffic">
+            <div class="panel-hdr">
+                <span class="panel-title">LIVE TRAFFIC</span>
+                <div class="panel-controls">
+                    <span class="tag" id="pps-counter">0 pkt/s</span>
+                </div>
+            </div>
+            <div class="chart-wrap">
+                <canvas id="trafficChart"></canvas>
+            </div>
+        </div>
+
+        <!-- Protocol Pie -->
+        <div class="panel" id="panel-protocols">
+            <div class="panel-hdr"><span class="panel-title">PROTOCOLS</span></div>
+            <div class="chart-wrap pie-wrap">
+                <canvas id="protoChart"></canvas>
+            </div>
+        </div>
+
+        <!-- Alerts Panel -->
+        <div class="panel span-2" id="panel-alerts">
+            <div class="panel-hdr">
+                <span class="panel-title">THREAT ALERTS</span>
+                <div class="panel-controls">
+                    <button class="tag btn-tag" onclick="filterAlerts('ALL')">ALL</button>
+                    <button class="tag btn-tag sev-crit" onclick="filterAlerts('CRITICAL')">CRIT</button>
+                    <button class="tag btn-tag sev-high" onclick="filterAlerts('HIGH')">HIGH</button>
+                    <button class="tag btn-tag sev-med" onclick="filterAlerts('MEDIUM')">MED</button>
+                </div>
+            </div>
+            <div class="alerts-table-wrap">
+                <table class="alerts-table">
+                    <thead>
+                        <tr>
+                            <th>TIME</th>
+                            <th>SEVERITY</th>
+                            <th>TYPE</th>
+                            <th>SOURCE IP</th>
+                            <th>DESCRIPTION</th>
+                            <th>ACTION</th>
+                        </tr>
+                    </thead>
+                    <tbody id="alerts-tbody">
+                        <tr class="empty-row">
+                            <td colspan="6">No alerts yet. Start the sniffer to begin monitoring.</td>
+                        </tr>
+                    </tbody>
+                </table>
+            </div>
+        </div>
+
+        <!-- Top IPs -->
+        <div class="panel" id="panel-top-ips">
+            <div class="panel-hdr"><span class="panel-title">TOP SOURCE IPs</span></div>
+            <div id="top-ips-list" class="ip-list">
+                <div class="empty-msg">Waiting for traffic…</div>
+            </div>
+        </div>
+
+        <!-- Live Packet Feed -->
+        <div class="panel" id="panel-packets">
+            <div class="panel-hdr">
+                <span class="panel-title">PACKET FEED</span>
+                <span class="tag" id="feed-toggle" onclick="toggleFeed()" style="cursor:pointer">■ PAUSE</span>
+            </div>
+            <div id="packet-feed" class="packet-feed"></div>
+        </div>
+
+        <!-- Attack World Map -->
+        <div class="panel span-2" id="panel-map">
+            <div class="panel-hdr">
+                <span class="panel-title">ATTACK ORIGIN MAP</span>
+                <div class="panel-controls">
+                    <span class="tag" id="map-marker-count">0 threats</span>
+                    <button class="btn-tag" onclick="refreshMap()">↺ REFRESH</button>
+                </div>
+            </div>
+            <div id="threat-map" style="height:340px;width:100%;"></div>
+        </div>
+
+        <!-- Top Countries -->
+        <div class="panel" id="panel-countries">
+            <div class="panel-hdr"><span class="panel-title">TOP ATTACK ORIGINS</span></div>
+            <div id="countries-list" class="ip-list">
+                <div class="empty-msg">No geo data yet…</div>
+            </div>
+        </div>
+
+        <!-- Attack Simulator -->
+        <div class="panel" id="panel-simulate">
+            <div class="panel-hdr"><span class="panel-title">ATTACK SIMULATOR</span></div>
+            <div class="sim-body">
+                <p class="sim-desc">Inject simulated attacks to test the detection engine.</p>
+                <div class="sim-row">
+                    <div class="sim-input-group">
+                        <label>Source IP</label>
+                        <input type="text" id="sim-src-ip" placeholder="e.g. 192.168.99.10" class="sim-input">
+                    </div>
+                </div>
+                <div class="sim-btns">
+                    <button class="btn btn-sim" onclick="simulateAttack('port-scan')">
+                        🔍 Port Scan
+                    </button>
+                    <button class="btn btn-sim" onclick="simulateAttack('brute-force')">
+                        🔐 Brute Force
+                    </button>
+                </div>
+                <div id="sim-result" class="sim-result hidden"></div>
+            </div>
+        </div>
+
+        <!-- IP Blacklist Manager -->
+        <div class="panel" id="panel-blacklist">
+            <div class="panel-hdr"><span class="panel-title">IP BLACKLIST</span></div>
+            <div class="bl-body">
+                <div class="bl-add-row">
+                    <input type="text" id="bl-ip-input" placeholder="Enter IP to block" class="sim-input">
+                    <button class="btn btn-danger sm" onclick="addToBlacklist()">BLOCK</button>
+                </div>
+                <div id="blacklist-entries" class="bl-entries">
+                    <div class="empty-msg">No IPs blocked</div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Network Mapper -->
+        <div class="panel span-2" id="panel-mapper">
+            <div class="panel-hdr">
+                <span class="panel-title">NETWORK MAPPER</span>
+                <div class="panel-controls">
+                    <span class="tag" id="mapper-subnet">—</span>
+                    <button class="btn btn-primary" id="btn-scan" onclick="startNetworkScan()"
+                        style="padding:4px 12px;font-size:0.7rem">⚡ SCAN LAN</button>
+                    <button class="btn btn-ghost hidden" id="btn-scan-stop" style="padding:4px 12px;font-size:0.7rem">■
+                        STOP</button>
+                </div>
+            </div>
+            <div class="mapper-body">
+                <div class="scan-progress-wrap hidden" id="scan-progress-wrap">
+                    <div class="scan-progress-bar">
+                        <div id="scan-progress-fill" style="width:0%"></div>
+                    </div>
+                    <div class="scan-progress-msg" id="scan-progress-msg">Initialising…</div>
+                </div>
+                <div id="mapper-results" class="mapper-results">
+                    <div class="empty-msg">Run a LAN scan to discover devices and open ports.</div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Export / Reports -->
+        <div class="panel" id="panel-export">
+            <div class="panel-hdr"><span class="panel-title">REPORTS & EXPORT</span></div>
+            <div class="export-body">
+                <p class="sim-desc">Download threat data and scan results for offline analysis.</p>
+                <div class="export-group">
+                    <div class="export-group-title">ALERT REPORTS</div>
+                    <div class="export-btns">
+                        <a class="btn-export" href="/api/reports/alerts.csv" onclick="return authDownload(this)">
+                            📄 Alerts CSV (24h)
+                        </a>
+                        <a class="btn-export" href="/api/reports/alerts.pdf" onclick="return authDownload(this)">
+                            📊 Threat Report PDF
+                        </a>
+                        <a class="btn-export" href="/api/reports/alerts.csv?severity=CRITICAL"
+                            onclick="return authDownload(this)">
+                            🔴 Critical Only CSV
+                        </a>
+                    </div>
+                </div>
+                <div class="export-group">
+                    <div class="export-group-title">SCAN RESULTS</div>
+                    <div class="export-btns">
+                        <a class="btn-export" href="/api/reports/scan.csv" onclick="return authDownload(this)">
+                            🖧 Network Scan CSV
+                        </a>
+                    </div>
+                </div>
+                <div id="export-msg" class="sim-result hidden"></div>
+            </div>
+        </div>
+
+    </main>
+
+    <!-- ══ ALERT TOAST ══════════════════════════════════════════════════════════ -->
+    <div id="alert-toast" class="toast hidden">
+        <div class="toast-severity" id="toast-sev">CRITICAL</div>
+        <div class="toast-content">
+            <div class="toast-type" id="toast-type">PORT SCAN</div>
+            <div class="toast-ip" id="toast-ip">192.168.1.1</div>
+        </div>
+        <button class="toast-close" onclick="closeToast()">✕</button>
+    </div>
+    <script>
+        // Redirect to login if not authenticated
+        if (!localStorage.getItem('nids_token')) {
+            window.location.href = '/login';
+        }
+    </script>
+    <script src="{{ url_for('static', filename='dashboard.js') }}"></script>
+</body>
+
+</html>
